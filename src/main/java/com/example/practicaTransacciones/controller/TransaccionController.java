@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TransaccionController {
     private final TransaccionService transaccionService;
-
     @GetMapping("/{id}/estado")
     public ResponseEntity<TransaccionDTOResponse> obtenerEstado(@PathVariable Long id) {
         return ResponseEntity.ok(transaccionService.obtenerEstado(id));
