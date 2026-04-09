@@ -25,7 +25,7 @@ public class TransaccionServiceImpl implements TransaccionService {
     @Transactional(readOnly = true)
     public TransaccionDTOResponse obtenerEstado(Long id) {
         MDC.put("correlationId", UUID.randomUUID().toString());
-        //Buca en bbdd transacciones con id( devuelve Optional)
+        //Buca en bbdd transacciones con id ( devuelve Optional)
         var transaccion = transaccionRepository.findById(id)
                 //Si está vacío lanza exception (404)
                 .orElseThrow(() -> new TransaccionNotFoundException(id));
