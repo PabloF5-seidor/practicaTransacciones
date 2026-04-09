@@ -4,7 +4,8 @@ import com.example.practicaTransacciones.domain.EstadoTransaccion;
 import com.example.practicaTransacciones.domain.TipoTransaccion;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
+
 
 public record TransaccionDTOResponse(
         Long id,
@@ -13,6 +14,6 @@ public record TransaccionDTOResponse(
         BigDecimal monto,
         TipoTransaccion tipo,
         EstadoTransaccion estado,
-        Instant fechaHora,
+      LocalDateTime fechaHora,
         Double riesgoFraude
 ) {}

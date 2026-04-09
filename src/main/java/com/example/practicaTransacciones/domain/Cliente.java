@@ -1,23 +1,41 @@
 package com.example.practicaTransacciones.domain;
 
-import jakarta.persistence.*;
-import org.springframework.data.annotation.Id;
 
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+
 
 @Entity
-@Table(name = "clientes")
-
+@Table(name = "cliente")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Cliente {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+    private Long id;
+
     @Column(nullable = false)
     private String nombre;
-    @Column(nullable = false,unique = true)
+
+    @Column(nullable = false, unique = true, length = 20)
     private String dni;
-    @Column(nullable = false,unique = true)
+
+    @Column(nullable = false, unique = true)
     private String email;
-    @Column(nullable = false)
-   private Date fechaAlta;
+
+    @Column(name = "fecha_alta", nullable = false)
+    private LocalDate fechaAlta;
+
+    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Cuenta> cuentas = new ArrayList<>();
 }
