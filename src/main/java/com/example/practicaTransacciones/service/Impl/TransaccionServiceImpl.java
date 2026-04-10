@@ -20,10 +20,11 @@ public class TransaccionServiceImpl implements TransaccionService {
     private final TransaccionRepository transaccionRepository;
     private final TransaccionMapper transaccionMapper;
 
-    //UUID -> Valores de 128 bits que son ids únicos globalmente
-    //MDC -> Añade datos a los logs generados en una ejecución
+
     @Transactional(readOnly = true)
     public TransaccionDTOResponse obtenerEstado(Long id) {
+        //UUID -> Valores de 128 bits que son ids únicos globalmente
+        //MDC -> Añade datos a los logs generados en una ejecución
         MDC.put("correlationId", UUID.randomUUID().toString());
         //Buca en bbdd transacciones con id ( devuelve Optional)
         var transaccion = transaccionRepository.findById(id)
