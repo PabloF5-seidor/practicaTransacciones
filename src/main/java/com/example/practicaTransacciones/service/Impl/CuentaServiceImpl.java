@@ -49,7 +49,7 @@ public class CuentaServiceImpl implements CuentaService {
         //Busca cuenta con ese id, devuelve optional<>
         var cuenta = cuentaRepository.findById(cuentaId).orElseThrow(() -> new CuentaNotFoundException(cuentaId));
         //Obtiene transacciones de esa cuenta por id de cuenta origen
-        List<Transaccion> transacciones = transaccionRepository.findByCuentaOrigenId(cuentaId);
+        List<Transaccion> transacciones = transaccionRepository.findByCuentaOrigenRefId(cuentaId);
 
         //Calculo monto promedio
         BigDecimal montoPromedio = calcularPromedio(transacciones);

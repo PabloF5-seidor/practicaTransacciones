@@ -4,9 +4,7 @@ import com.example.practicaTransacciones.domain.Cuenta;
 import com.example.practicaTransacciones.domain.EstadoTransaccion;
 import com.example.practicaTransacciones.domain.TipoTransaccion;
 import com.example.practicaTransacciones.domain.Transaccion;
-import com.example.practicaTransacciones.dto.TransaccionDTOResponse;
-import com.example.practicaTransacciones.dto.TransferenciaRequest;
-import com.example.practicaTransacciones.dto.TransferenciaValidaResponse;
+import com.example.practicaTransacciones.dto.*;
 import com.example.practicaTransacciones.exception.CuentaBloqueadaException;
 import com.example.practicaTransacciones.exception.SaldoInsuficienteException;
 import com.example.practicaTransacciones.exception.TransaccionNotFoundException;
@@ -15,52 +13,75 @@ import com.example.practicaTransacciones.repository.CuentaRepository;
 import com.example.practicaTransacciones.repository.TransaccionRepository;
 import com.example.practicaTransacciones.service.TransaccionService;
 import com.example.practicaTransacciones.util.FraudeScoreCalculator;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TransaccionServiceImpl implements TransaccionService {
+
     private final TransaccionRepository transaccionRepository;
     private final TransaccionMapper transaccionMapper;
     private final CuentaRepository cuentaRepository;
     private final FraudeScoreCalculator fraudeScoreCalculator;
+    private final Executor transaccionExecutor;
 
+    @Autowired
+    public TransaccionServiceImpl(
+            TransaccionRepository transaccionRepository,
+            TransaccionMapper transaccionMapper,
+            CuentaRepository cuentaRepository,
+            FraudeScoreCalculator fraudeScoreCalculator,
+            @Qualifier("transaccionExecutor") Executor transaccionExecutor) {
+        this.transaccionRepository = transaccionRepository;
+        this.transaccionMapper = transaccionMapper;
+        this.cuentaRepository = cuentaRepository;
+        this.fraudeScoreCalculator = fraudeScoreCalculator;
+        this.transaccionExecutor = transaccionExecutor;
+    }
 
+   //Endpoint 2
     @Transactional(readOnly = true)
+    @Override
     public TransaccionDTOResponse obtenerEstado(Long id) {
-        //UUID -> Valores de 128 bits que son ids únicos globalmente
-        //MDC -> Añade datos a los logs generados en una ejecución
         MDC.put("correlationId", UUID.randomUUID().toString());
+        log.info("Consultando estado de transacción con id: {}", id);
 
-        //Buca en bbdd transacciones con id ( devuelve Optional)
         var transaccion = transaccionRepository.findById(id)
-                //Si está vacío lanza exception (404)
                 .orElseThrow(() -> new TransaccionNotFoundException(id));
 
-        log.info("Transacción con id:" + id);
+        log.info("Transacción encontrada con id: {}", id);
         MDC.clear();
         return transaccionMapper.toEstadoResponse(transaccion);
     }
-
+    //Endpoint 1
     @Transactional
+    @Override
     public TransferenciaValidaResponse procesarTransferencia(TransferenciaRequest request) {
         MDC.put("correlationId", UUID.randomUUID().toString());
         log.info("Iniciando transferencia de {} a {}", request.cuentaOrigen(), request.cuentaDestino());
 
-        // Obtener cuenta origen con bloqueo pesimista para evitar condiciones de carrera
+        // Bloqueo pesimista: bloquea la fila hasta que termine la transacción
+        // Evita que dos transferencias simultáneas corrompan el saldo
         Cuenta origen = cuentaRepository.findByNumeroCuentaWithLock(request.cuentaOrigen())
                 .orElseThrow(() -> new CuentaBloqueadaException(request.cuentaOrigen()));
 
-        // Validar que la cuenta no está bloqueada ni cerrada
+        // Validar estado de la cuenta
         switch (origen.getEstado()) {
             case BLOQUEADA -> throw new CuentaBloqueadaException(request.cuentaOrigen());
             case CERRADA   -> throw new CuentaBloqueadaException(request.cuentaOrigen());
@@ -72,7 +93,7 @@ public class TransaccionServiceImpl implements TransaccionService {
             throw new SaldoInsuficienteException(request.cuentaOrigen());
         }
 
-        //  Crear la transacción en estado PENDIENTE y persistirla
+        // Crear transacción en estado PENDIENTE y persistir
         Transaccion transaccion = Transaccion.builder()
                 .cuentaOrigen(request.cuentaOrigen())
                 .cuentaDestino(request.cuentaDestino())
@@ -88,12 +109,12 @@ public class TransaccionServiceImpl implements TransaccionService {
         Long transaccionId = transaccion.getId();
         log.info("Transacción persistida con id: {} en estado PENDIENTE", transaccionId);
 
-        //Lanzar el procesamiento asíncrono (hilo separado)
+        // Lanzar procesamiento asíncrono en hilo separado
         procesarTransferenciaAsync(transaccionId, request);
 
         MDC.clear();
 
-        //Devuelve 202 Accepted inmediatamente con el ID de seguimiento
+        // Retorna 202 Accepted inmediatamente con el ID de seguimiento
         return new TransferenciaValidaResponse(
                 transaccionId,
                 EstadoTransaccion.PENDIENTE.name(),
@@ -101,7 +122,7 @@ public class TransaccionServiceImpl implements TransaccionService {
         );
     }
 
-    @Async("transaccionExecutor") // Se ejecuta en un hilo del pool configurado en Async
+    @Async("transaccionExecutor")
     @Transactional
     public void procesarTransferenciaAsync(Long transaccionId, TransferenciaRequest request) {
         MDC.put("correlationId", UUID.randomUUID().toString());
@@ -111,33 +132,33 @@ public class TransaccionServiceImpl implements TransaccionService {
             Transaccion transaccion = transaccionRepository.findById(transaccionId)
                     .orElseThrow(() -> new TransaccionNotFoundException(transaccionId));
 
-            // Cambiar estado a PROCESANDO
+            // Cambiar a PROCESANDO
             transaccion.setEstado(EstadoTransaccion.PROCESANDO);
             transaccionRepository.save(transaccion);
 
-            // Calcular score de fraude en paralelo con la persistencia
-            double scoreFragude = fraudeScoreCalculator.calcularScore(transaccion);
-            transaccion.setRiesgoFraude(scoreFragude);
+            // Calcular score de fraude
+            double scoreFraude = fraudeScoreCalculator.calcularScore(transaccion);
+            transaccion.setRiesgoFraude(scoreFraude);
 
-            // Si el score supera 0.75 bloquear automáticamente
-            if (scoreFragude > 0.75) {
-                log.warn("Riesgo de fraude alto ({}) en transacción id: {}", scoreFragude, transaccionId);
+            // Si supera 0.75 -> rechazar automáticamente
+            if (scoreFraude > 0.75) {
+                log.warn("Riesgo de fraude alto ({}) en transacción id: {}", scoreFraude, transaccionId);
                 transaccion.setEstado(EstadoTransaccion.RECHAZADA);
                 transaccionRepository.save(transaccion);
                 return;
             }
 
-            // Descontar saldo de la cuenta origen
+            // Descontar saldo
             Cuenta origen = cuentaRepository.findByNumeroCuentaWithLock(request.cuentaOrigen())
                     .orElseThrow(() -> new CuentaBloqueadaException(request.cuentaOrigen()));
             origen.setSaldo(origen.getSaldo().subtract(request.monto()));
-            cuentaRepository.save(origen);//guardar
+            cuentaRepository.save(origen);
 
             // Marcar como completada
             transaccion.setEstado(EstadoTransaccion.COMPLETADA);
             transaccionRepository.save(transaccion);
 
-            log.info("Transferencia id: {} completada con éxito. Score fraude: {}", transaccionId, scoreFragude);
+            log.info("Transferencia id: {} completada. Score fraude: {}", transaccionId, scoreFraude);
 
         } catch (Exception e) {
             log.error("Error procesando transferencia id: {}. Causa: {}", transaccionId, e.getMessage());
@@ -145,9 +166,79 @@ public class TransaccionServiceImpl implements TransaccionService {
                 t.setEstado(EstadoTransaccion.RECHAZADA);
                 transaccionRepository.save(t);
             });
-        } finally { // Para que siempre termine MDC.clear() sin importar resultado
+        } finally {
             MDC.clear();
         }
     }
-}
 
+    //Endpoint 3
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Override
+    public LoteResponseDTO procesarLote(LoteRequestDTO loteRequest) {
+        MDC.put("correlationId", UUID.randomUUID().toString());
+        log.info("Iniciando procesamiento de lote con {} transacciones",
+                loteRequest.transacciones().size());
+
+        AtomicInteger procesadasOk    = new AtomicInteger(0);
+        AtomicInteger procesadasError = new AtomicInteger(0);
+        List<String> errores = Collections.synchronizedList(new ArrayList<>());
+
+        // Partir el lote en sublotes de 50
+        List<List<TransferenciaRequest>> sublotes = partirEnSublotes(
+                loteRequest.transacciones(), 50);
+
+        log.info("Lote dividido en {} sublotes de 50", sublotes.size());
+
+        // Procesar cada sublote en un hilo separado del pool
+        List<CompletableFuture<Void>> futuros = sublotes.stream()
+                .map(sublote -> CompletableFuture.runAsync(
+                        () -> procesarSublote(sublote, procesadasOk, procesadasError, errores),
+                        transaccionExecutor
+                ))
+                .toList();
+
+        // Esperar a que todos los hilos terminen
+        CompletableFuture.allOf(futuros.toArray(new CompletableFuture[0])).join();
+
+        log.info("Lote completado. OK: {} | Error: {}", procesadasOk.get(), procesadasError.get());
+        MDC.clear();
+
+        return new LoteResponseDTO(
+                loteRequest.transacciones().size(),
+                procesadasOk.get(),
+                procesadasError.get(),
+                errores
+        );
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void procesarSublote(List<TransferenciaRequest> sublote,
+                                AtomicInteger procesadasOk,
+                                AtomicInteger procesadasError,
+                                List<String> errores) {
+        MDC.put("correlationId", UUID.randomUUID().toString());
+        log.info("Procesando sublote de {} transacciones", sublote.size());
+
+        for (TransferenciaRequest request : sublote) {
+            try {
+                procesarTransferencia(request);
+                procesadasOk.incrementAndGet();
+            } catch (Exception e) {
+                procesadasError.incrementAndGet();
+                String error = "Error en transferencia " + request.cuentaOrigen()
+                        + " -> " + request.cuentaDestino() + ": " + e.getMessage();
+                errores.add(error);
+                log.error(error);
+            }
+        }
+        MDC.clear();
+    }
+
+    private <T> List<List<T>> partirEnSublotes(List<T> lista, int tamanio) {
+        List<List<T>> sublotes = new ArrayList<>();
+        for (int i = 0; i < lista.size(); i += tamanio) {
+            sublotes.add(lista.subList(i, Math.min(i + tamanio, lista.size())));
+        }
+        return sublotes;
+    }
+}

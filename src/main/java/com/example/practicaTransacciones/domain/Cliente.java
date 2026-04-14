@@ -32,7 +32,7 @@ public class Cliente {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "fecha_alta", nullable = false)
+    @Column(name = "fecha_alta", nullable = false,columnDefinition = "DATE")
     private LocalDate fechaAlta;
 
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

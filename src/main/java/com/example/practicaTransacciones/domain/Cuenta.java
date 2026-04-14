@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.chrono.ChronoLocalDate;
 import java.util.ArrayList;
@@ -33,8 +34,8 @@ public class Cuenta {
     @Column(nullable = false, length = 20)
     private TipoCuenta tipo;
 
-    @Column(name = "fecha_alta", nullable = false)
-    private ChronoLocalDate fechaAlta;
+    @Column(name = "fecha_alta", nullable = false,columnDefinition = "DATE")
+    private LocalDate fechaAlta;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

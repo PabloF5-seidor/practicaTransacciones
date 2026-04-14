@@ -1,8 +1,6 @@
 package com.example.practicaTransacciones.controller;
 
-import com.example.practicaTransacciones.dto.TransaccionDTOResponse;
-import com.example.practicaTransacciones.dto.TransferenciaRequest;
-import com.example.practicaTransacciones.dto.TransferenciaValidaResponse;
+import com.example.practicaTransacciones.dto.*;
 import com.example.practicaTransacciones.service.TransaccionService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -26,5 +24,12 @@ public class TransaccionController {
             @Valid @RequestBody TransferenciaRequest request) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(transaccionService.procesarTransferencia(request));
+    }
+    @PostMapping("/lote")
+    @Operation(summary = "Procesar un lote de hasta 500 transacciones en paralelo")
+    public ResponseEntity<LoteResponseDTO> procesarLote(
+            @Valid @RequestBody LoteRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(transaccionService.procesarLote(request));
     }
 }
