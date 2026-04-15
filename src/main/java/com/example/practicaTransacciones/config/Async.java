@@ -14,12 +14,14 @@ public class Async {
     @Bean("transaccionExecutor")
     public Executor transaccionExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-
-        int cpus = Runtime.getRuntime().availableProcessors(); // Detecta las CPUs disponibles en la máquina
-        executor.setCorePoolSize(cpus);                        // Hilos base siempre activos
-        executor.setMaxPoolSize(cpus * 2);                     // Máximo de hilos en momentos de pico
-        executor.setQueueCapacity(200);                        // Cola capacidad
-        executor.setThreadNamePrefix("trans-exec-");           // Prefijo para identificar los hilos en los logs
+  // Detecta las CPUs disponibles en la máquina
+        int cpus = Runtime.getRuntime().availableProcessors();
+        executor.setCorePoolSize(cpus);    // Hilos base siempre activos
+        // Máximo de hilos en momentos de pico
+        executor.setMaxPoolSize(cpus * 2);
+        // Cola capacidad
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("trans-exec-"); // Prefijo para identificar los hilos en los logs
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         // Si la cola está llena, el hilo que llamó ejecuta la tarea él mismo
 

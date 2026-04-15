@@ -47,7 +47,7 @@ public class TransaccionServiceImpl implements TransaccionService {
             TransaccionMapper transaccionMapper,
             CuentaRepository cuentaRepository,
             FraudeScoreCalculator fraudeScoreCalculator,
-            @Qualifier("transaccionExecutor") Executor transaccionExecutor) {
+            @Qualifier("transaccionExecutor") Executor transaccionExecutor) {//Lombok no es compatible con Qualifier
         this.transaccionRepository = transaccionRepository;
         this.transaccionMapper = transaccionMapper;
         this.cuentaRepository = cuentaRepository;
@@ -114,7 +114,7 @@ public class TransaccionServiceImpl implements TransaccionService {
 
         MDC.clear();
 
-        // Retorna 202 Accepted inmediatamente con el ID de seguimiento
+        // Devuelve 200
         return new TransferenciaValidaResponse(
                 transaccionId,
                 EstadoTransaccion.PENDIENTE.name(),
@@ -122,7 +122,7 @@ public class TransaccionServiceImpl implements TransaccionService {
         );
     }
 
-    @Async("transaccionExecutor")
+    @Async("transaccionExecutor") //Hilo de async
     @Transactional
     public void procesarTransferenciaAsync(Long transaccionId, TransferenciaRequest request) {
         MDC.put("correlationId", UUID.randomUUID().toString());
