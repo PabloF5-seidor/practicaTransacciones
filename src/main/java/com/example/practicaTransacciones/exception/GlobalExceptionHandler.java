@@ -46,6 +46,13 @@ public class GlobalExceptionHandler {
                 .body(buildError(HttpStatus.NOT_FOUND, "Transacción no encontrada",
                         ex.getMessage(), request.getRequestURI()));
     }
+    @ExceptionHandler(AlertaFraudeNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleAlertaNotFound(
+            AlertaFraudeNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(buildError(HttpStatus.NOT_FOUND, "Alerta no encontrada",
+                        ex.getMessage(), request.getRequestURI()));
+    }
     //Error 409
     @ExceptionHandler(ConcurrencyFailureException.class)
     public ResponseEntity<Map<String, Object>> handleConcurrency(

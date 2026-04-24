@@ -1,6 +1,7 @@
 package com.example.practicaTransacciones.controller;
 
 import com.example.practicaTransacciones.dto.CuentaDTOResponse;
+import com.example.practicaTransacciones.dto.RankingCuentaResponseDTO;
 import com.example.practicaTransacciones.service.CuentaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,6 +11,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/cuentas")
@@ -21,5 +24,11 @@ public class CuentaController {
     @GetMapping("/{id}/resumenCuenta")
     public ResponseEntity<CuentaDTOResponse> getCuenta(@PathVariable Long id){
         return ResponseEntity.ok(cuentaService.resumenCuenta(id));
+    }
+
+    @GetMapping("/ranking-riesgo")
+    @Operation(summary = "Obtener ranking de cuentas ordenadas por puntuación de riesgo acumulada")
+    public ResponseEntity<List<RankingCuentaResponseDTO>> obtenerRankingRiesgo() {
+        return ResponseEntity.ok(cuentaService.obtenerRankingRiesgo());
     }
 }

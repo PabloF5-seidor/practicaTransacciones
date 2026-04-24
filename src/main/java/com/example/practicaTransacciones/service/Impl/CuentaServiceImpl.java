@@ -2,6 +2,7 @@ package com.example.practicaTransacciones.service.Impl;
 
 import com.example.practicaTransacciones.domain.Transaccion;
 import com.example.practicaTransacciones.dto.CuentaDTOResponse;
+import com.example.practicaTransacciones.dto.RankingCuentaResponseDTO;
 import com.example.practicaTransacciones.exception.CuentaNotFoundException;
 import com.example.practicaTransacciones.repository.CuentaRepository;
 import com.example.practicaTransacciones.repository.TransaccionRepository;
@@ -24,6 +25,7 @@ import java.util.UUID;
 public class CuentaServiceImpl implements CuentaService {
     private final CuentaRepository cuentaRepository;
     private final TransaccionRepository transaccionRepository;
+    private final RankingCuentasRiesgo rankingCuentasRiesgo;
 
 
     private BigDecimal calcularPromedio(List<Transaccion> transacciones){
@@ -46,7 +48,7 @@ public class CuentaServiceImpl implements CuentaService {
         //{} insterta cuentaId
         log.info("Resumen cuenta {}", cuentaId);
 
-        //Busca cuenta con ese id, devuelve optional<>
+        //Busca cuenta con ese id, devuelve optional, sino exception
         var cuenta = cuentaRepository.findById(cuentaId).orElseThrow(() -> new CuentaNotFoundException(cuentaId));
         //Obtiene transacciones de esa cuenta por id de cuenta origen
         List<Transaccion> transacciones = transaccionRepository.findByCuentaOrigenRefId(cuentaId);
@@ -71,6 +73,7 @@ public class CuentaServiceImpl implements CuentaService {
                 desviacionEstandar,
                 puntuacionRiesgoAcumulada
         );
+        // No se expone la entidad JPA directamente
 
     }
 
@@ -94,5 +97,13 @@ public class CuentaServiceImpl implements CuentaService {
         //Convierte transaccion a el valor de riesgoFraude si es null usa 0 y evita exception
         return transacciones.stream().mapToDouble(t -> t.getRiesgoFraude() !=null ? t.getRiesgoFraude():0).sum();
         //Suma todos los valores de riesgo acumulados
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    //RankingCuentasRiesgo implementa algoritmo 3
+    public List<RankingCuentaResponseDTO> obtenerRankingRiesgo() {
+
+        return rankingCuentasRiesgo.calcularRanking();
     }
 }

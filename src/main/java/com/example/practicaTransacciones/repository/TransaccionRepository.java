@@ -21,4 +21,7 @@ public interface TransaccionRepository extends JpaRepository<Transaccion, Long> 
     @Query("SELECT t FROM Transaccion t WHERE t.cuentaOrigen = :numeroCuenta")
     List<Transaccion> findByCuentaOrigen(@Param("numeroCuenta") String numeroCuenta);
 
+    @Query("SELECT t FROM Transaccion t WHERE t.fechaHora >= :desde")
+    List<Transaccion> findTransaccionesUltimoDia(@Param("desde") LocalDateTime desde);
+
 }

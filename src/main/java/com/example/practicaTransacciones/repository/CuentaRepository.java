@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface CuentaRepository extends JpaRepository<Cuenta, Long> {
@@ -17,4 +18,8 @@ public interface CuentaRepository extends JpaRepository<Cuenta, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Cuenta c WHERE c.numeroCuenta = :numeroCuenta")
     Optional<Cuenta> findByNumeroCuentaWithLock(@Param("numeroCuenta") String numeroCuenta);
+
+    // Para RankingCuentasRiesgo todas las cuentas con sus alertas
+    @Query("SELECT c FROM Cuenta c LEFT JOIN FETCH c.transacciones")
+    List<Cuenta> findAllWithTransacciones();
 }
